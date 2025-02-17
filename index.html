@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>SQL Query Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            resize: vertical;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-top: 20px;
+        }
+
+        .example {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", async function () {
+            await fetchTables(); // Fetch table schema on page load
+        });
+
+        async function fetchTables() {
+            try {
+                let response = await fetch("http://127.0.0.1:5000/get_tables");
+                let tables = await response.json();
+                console.log("Fetched tables:", tables); // Debugging information
+
+                let tableSelect = document.getElementById("table_select");
+                tableSelect.innerHTML = ""; // Clear existing options
+
+                for (let table in tables) {
+                    let option = document.createElement("option");
+                    option.value = table;
+                    option.textContent = table;
+                    tableSelect.appendChild(option);
+                }
+
+                loadColumns();
+            } catch (error) {
+                console.error("Error fetching tables", error);
+            }
+        }
+
+        function loadColumns() {
+            let selectedTable = document.getElementById("table_select").value;
+            fetch("http://127.0.0.1:5000/get_tables")
+                .then(response => response.json())
+                .then(tables => {
+                    console.log("Fetched columns for table:", selectedTable, tables[selectedTable]); // Debugging information
+                    let columnsDiv = document.getElementById("columns_list");
+                    columnsDiv.innerHTML = "";
+
+                    for (let table in tables) {
+                        let tableHeader = document.createElement("h3");
+                        tableHeader.textContent = table;
+                        columnsDiv.appendChild(tableHeader);
+
+                        tables[table].forEach(column => {
+                            let checkbox = document.createElement("input");
+                            checkbox.type = "checkbox";
+                            checkbox.value = `${table}.${column}`;
+                            checkbox.id = `col_${table}_${column}`;
+
+                            let label = document.createElement("label");
+                            label.textContent = column;
+                            label.htmlFor = `col_${table}_${column}`;
+
+                            columnsDiv.appendChild(checkbox);
+                            columnsDiv.appendChild(label);
+                            columnsDiv.appendChild(document.createElement("br"));
+                        });
+                    }
+                });
+        }
+
+        async function getSQL() {
+            let userInput = document.getElementById("user_input").value;
+
+            let response = await fetch('http://127.0.0.1:5000/generate_sql', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({query: userInput})
+            });
+
+            let data = await response.json();
+            console.log("Generated SQL:", data); // Debugging information
+            document.getElementById("output").textContent = data.sql_query || data.error;
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>SQL Query Generator</h2>
+
+        <label for="user_input">Enter your query:</label>
+        <textarea 
+            id="user_input" 
+            placeholder="e.g., select name where total greater than 100"
+        ></textarea>
+        <div class="example">
+            Try these complex examples:
+            <ul>
+                <li>select name and total where created_at between 2023-01-01 and 2023-12-31 and total greater than 1000</li>
+                <li>select email where name contains John and total greater than 500 and created_at less than today</li>
+                <li>select total where created_at greater than this month and name starts with A</li>
+                <li>select name and email where total between 100 and 1000 and email contains gmail</li>
+            </ul>
+        </div>
+
+        <button onclick="getSQL()">Generate SQL</button>
+        <pre id="output"></pre>
+    </div>
+</body>
+</html>
